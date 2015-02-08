@@ -10,7 +10,7 @@ scanfolder = "/home/samuel/Documents/scan/scan/test/"
 dbfile = scanfolder + "index.db"
 
 # Createscript fuer DB
-createscript = ["""\
+createscriptscan = ["""\
 CREATE TABLE IF NOT EXISTS scans
 (
 id INTEGER PRIMARY KEY,
@@ -28,6 +28,32 @@ value INTEGER
 INSERT INTO sequence (name, value) VALUES ('lastfile', 1000); 
 """]
 
+createscriptpdf = ["""\
+CREATE TABLE IF NOT EXISTS folder
+(
+id INTEGER PRIMARY KEY,
+name TEXT
+);""", """\
+INSERT INTO folder (name) VALUES ('bank1'); 
+""", """\
+INSERT INTO folder (name) VALUES ('bank2'); 
+""", """\
+INSERT INTO folder (name) VALUES ('bank3'); 
+""", """\
+INSERT INTO folder (name) VALUES ('creditcard1'); 
+""", """\
+INSERT INTO folder (name) VALUES ('creditcard2'); 
+""", """\
+INSERT INTO folder (name) VALUES ('car'); 
+""", """\
+INSERT INTO folder (name) VALUES ('job'); 
+""", """\
+INSERT INTO folder (name) VALUES ('insurance1'); 
+""", """\
+INSERT INTO folder (name) VALUES ('insurance2'); 
+"""]
+
+# Klasse zum scanen, editieren und zu PDF umwandeln (inkl. OCR)
 class scandoc(object):
 	# Statische Member
 	# Statische Methode
@@ -39,7 +65,7 @@ class scandoc(object):
 		try:
 			self.__cur.execute("SELECT * FROM sequence where name='lastfile';")
 		except:
-			for x in createscript:
+			for x in createscriptscan:
 				self.__cur.execute(x)
 			self.__conn.commit()	
 		self.__Test = "Hello World"
@@ -57,9 +83,9 @@ class scandoc(object):
 													# 0..221.121mm (in steps of 0.0211639)
 		self.__scan_height = "297.014"				# Specifies the height of the media.
 													# 0..876.695mm (in steps of 0.0211639)
-		self.__scan_x = scan_width					# Width of scan-area.
+		self.__scan_x = self.__scan_width			# Width of scan-area.
 													# 0..215.872mm (in steps of 0.0211639)
-		self.__scan_y = scan_height					# Height of scan-area.
+		self.__scan_y = self.__scan_height			# Height of scan-area.
 													# 0..279.364mm (in steps of 0.0211639)
 		self.__scan_batch = "out%d"					# Filename
 		self.__scan_batchstart = "1000"				# page number to start naming files with
@@ -105,22 +131,54 @@ class scandoc(object):
 	def prepare(self):
 		toprepare = self.__cur.execute("SELECT filename FROM scans WHERE prepared=\'False\';")
 		for x in toprepare.fetchall():
-			subprocess.Popen(["mogrify", "-normalize", "-level", "27%,76%", scanfolder + x[0]])
+			p = subprocess.Popen(["mogrify", "-normalize", "-level", "27%,76%", scanfolder + x[0]])
 			self.__cur.execute("UPDATE scans SET prepared=\'True\' WHERE filename=\'%s\';" %x[0])
 			self.__conn.commit()
+			p.communicate()
 	# OCR
 	def ocr(self):
 		toocr = self.__cur.execute("SELECT filename FROM scans WHERE ocr=\'False\';")
 		for x in toocr.fetchall():
-			subprocess.Popen(["tesseract", "-l", "deu", "-psm", "3", scanfolder + x[0], scanfolder + x[0][:13], "pdf"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			p = subprocess.Popen(["tesseract", "-l", "deu", "-psm", "3", scanfolder + x[0], scanfolder + x[0][:13], "pdf"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			self.__cur.execute("UPDATE scans SET ocr=\'True\' WHERE filename=\'%s\';" %x[0])
 			self.__conn.commit()
+			p.communicate()
 
 
 
-
-
-
+# Klasse zum zusammenfuehren und verschieben von PDFs
+class pdfmanipulation(object):
+	# Statische Member
+	# Statische Methode
+	# Dies ist der Konstruktor
+	def __init__(self):
+		# DB oeffnen oder erstellen
+		self.__conn = sqlite3.connect("manipulation.db")
+		self.__cur = self.__conn.cursor()
+		try:
+			self.__cur.execute("SELECT * FROM folder';")
+		except:
+			for x in createscriptpdf:
+				self.__cur.execute(x)
+			self.__conn.commit()	
+		self.__Test = "Hello World"
+	# Dies ist der Destruktor
+	def __del__(self):
+		self.__conn.close()
+	# Hier sind die Methoden
+	# Getter Methoden
+	def test(self):
+		return self.__Test
+	# Setter Methoden
+	def setTest(self, test):
+		self.__Test = test
+	# Property Attribute
+	Test = property(test, setTest)
+	# Alle weiteren Methoden
+	### Funktionen #############################################
+	### Scan ###
+	def hello(self):
+		return "hello world"
 
 
 
