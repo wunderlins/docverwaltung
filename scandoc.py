@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
+import os
 import sqlite3
 import subprocess
 import datetime
-
+from PyPDF2 import PdfFileReader, PdfFileMerger
 
 # Pfade
 scanfolder = "/home/samuel/Documents/scan/scan/test/"
@@ -177,8 +178,11 @@ class pdfmanipulation(object):
 	# Alle weiteren Methoden
 	### Funktionen #############################################
 	### Scan ###
-	def hello(self):
-		return "hello world"
+	def merge(self, outpath, pdf_files):
+		merger = PdfFileMerger()
+		for filename in pdf_files:
+   			merger.append(PdfFileReader(os.path.join(outpath, filename), "rb"))
+		merger.write(os.path.join(outpath, "merged_full.pdf"))
 
 
 
