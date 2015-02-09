@@ -1,0 +1,9 @@
+- Tracker für indexierung der PDFs oder/und Beagle
+	ev. noch was ganz anderes
+- thumpnail generieren aus tiff (jpeg oder png)
+	- erledigt
+- json objekt mit:
+	- thumpnail
+		- Filename
+		- ev. Orientierung
+

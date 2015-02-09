@@ -18,6 +18,7 @@ id INTEGER PRIMARY KEY,
 filename TEXT,
 time_created TEXT,
 prepared BOOLEAN DEFAULT False,
+thumbnail BOOLEAN DEFAULT False,
 ocr BOOLEAN DEFAULT False
 );""", """\
 CREATE TABLE IF NOT EXISTS sequence
@@ -96,8 +97,9 @@ class scandoc(object):
 													# 0..100% (in steps of 1.52588e-05)
 		self.__scan_swdeskew = "no"					# Request driver to rotate skewed pages digitally.
 		self.__scan_ald = "yes" 					# Scanner detects paper lower edge. May confuse some frontends.
-
-
+		# Thumbnail
+		self.__thumbnailsize = "300x424"			# Groesse des Thumbnail
+		self.__thumbnailformat = "png"				# Format des Thumbnail
 
 	# Dies ist der Destruktor
 	def __del__(self):
@@ -128,7 +130,7 @@ class scandoc(object):
 				self.__cur.execute("INSERT INTO scans (filename) VALUES (\'%s%s.%s\')" %(self.__scan_batch, x[13:17], self.__scan_format))
 				self.__cur.execute("UPDATE sequence SET value=%s WHERE name=\'lastfile\';" % x[13:17])
 				self.__conn.commit()
-	# Scans bearbeiten
+	# Scans bearbeiten und Thumbnail erstellen
 	def prepare(self):
 		toprepare = self.__cur.execute("SELECT filename FROM scans WHERE prepared=\'False\';")
 		for x in toprepare.fetchall():
@@ -136,11 +138,21 @@ class scandoc(object):
 			self.__cur.execute("UPDATE scans SET prepared=\'True\' WHERE filename=\'%s\';" %x[0])
 			self.__conn.commit()
 			p.communicate()
+
+	# Thunpnails erstellen
+	def thumbnail(self):
+		toprepare = self.__cur.execute("SELECT filename FROM scans WHERE thumbnail=\'False\';")
+		for x in toprepare.fetchall():
+			p = subprocess.Popen(["convert", "-thumbnail", self.__thumbnailsize, scanfolder + x[0], scanfolder + x[0][:14] + self.__thumbnailformat])
+			self.__cur.execute("UPDATE scans SET thumbnail=\'True\' WHERE filename=\'%s\';" %x[0])
+			self.__conn.commit()
+			p.communicate()
+
 	# OCR
 	def ocr(self):
 		toocr = self.__cur.execute("SELECT filename FROM scans WHERE ocr=\'False\';")
 		for x in toocr.fetchall():
-			p = subprocess.Popen(["tesseract", "-l", "deu", "-psm", "3", scanfolder + x[0], scanfolder + x[0][:13], "pdf"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			p = subprocess.Popen(["tesseract", "-l", "deu", "-psm", "3", scanfolder + x[0], scanfolder + x[0][:14] + self.__, "pdf"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			self.__cur.execute("UPDATE scans SET ocr=\'True\' WHERE filename=\'%s\';" %x[0])
 			self.__conn.commit()
 			p.communicate()
