@@ -6,9 +6,7 @@ import subprocess
 import datetime
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
-# Pfade
-scanfolder = "/home/samuel/Documents/scan/scan/test/"
-dbfile = scanfolder + "index.db"
+
 
 # Createscript fuer DB
 createscriptscan = ["""\
@@ -61,8 +59,11 @@ class scandoc(object):
 	# Statische Methode
 	# Dies ist der Konstruktor
 	def __init__(self):
+		# Pfade
+		self.__scanfolder = "/home/samuel/Documents/scan/scan/test/"
+		self.__dbfile = self.__scanfolder + "index.db"
 		# DB oeffnen oder erstellen
-		self.__conn = sqlite3.connect(dbfile)
+		self.__conn = sqlite3.connect(self.__dbfile)
 		self.__cur = self.__conn.cursor()
 		try:
 			self.__cur.execute("SELECT * FROM sequence where name='lastfile';")
@@ -117,9 +118,9 @@ class scandoc(object):
 	### Funktionen #############################################
 	### Scan ###
 	def scan(self):
-		scan_batch = datetime.datetime.now().strftime("%Y%m%d-")
+		self.__scan_batch = datetime.datetime.now().strftime("%Y%m%d-")
 		lastfile = self.__cur.execute("select value from sequence where name=\'lastfile\';")
-		scan_batchstart = str(int(lastfile.fetchone()[0]) + 1)
+		self.__scan_batchstart = str(int(lastfile.fetchone()[0]) + 1)
 		output = subprocess.Popen(["scanimage", "-b", "-d", self.__scan_device, "--source", self.__scan_source, "--page-width", self.__scan_width, "--page-height", self.__scan_height, "-x", self.__scan_x, "-y", self.__scan_y, "--batch=" + self.__scanfolder + self.__scan_batch + "%d." + self.__scan_format, "--format=" + self.__scan_format, "--mode", self.__scan_mode, "--resolution", self.__scan_resolution, "--batch-start=" + self.__scan_batchstart, "--swdespeck", self.__scan_swdespeck, "--swskip", self.__scan_swskip, "--swdeskew=" + self.__scan_swdeskew, "--ald=" + self.__scan_ald], stderr=subprocess.PIPE)
 
 	
@@ -134,7 +135,7 @@ class scandoc(object):
 	def prepare(self):
 		toprepare = self.__cur.execute("SELECT filename FROM scans WHERE prepared=\'False\';")
 		for x in toprepare.fetchall():
-			p = subprocess.Popen(["mogrify", "-normalize", "-level", "27%,76%", scanfolder + x[0]])
+			p = subprocess.Popen(["mogrify", "-normalize", "-level", "27%,76%", self.__scanfolder + x[0]])
 			self.__cur.execute("UPDATE scans SET prepared=\'True\' WHERE filename=\'%s\';" %x[0])
 			self.__conn.commit()
 			p.communicate()
@@ -143,7 +144,7 @@ class scandoc(object):
 	def thumbnail(self):
 		toprepare = self.__cur.execute("SELECT filename FROM scans WHERE thumbnail=\'False\';")
 		for x in toprepare.fetchall():
-			p = subprocess.Popen(["convert", "-thumbnail", self.__thumbnailsize, scanfolder + x[0], scanfolder + x[0][:14] + self.__thumbnailformat])
+			p = subprocess.Popen(["convert", "-thumbnail", self.__thumbnailsize, self.__scanfolder + x[0], self.__scanfolder + x[0][:14] + self.__thumbnailformat])
 			self.__cur.execute("UPDATE scans SET thumbnail=\'True\' WHERE filename=\'%s\';" %x[0])
 			self.__conn.commit()
 			p.communicate()
@@ -152,7 +153,7 @@ class scandoc(object):
 	def ocr(self):
 		toocr = self.__cur.execute("SELECT filename FROM scans WHERE ocr=\'False\';")
 		for x in toocr.fetchall():
-			p = subprocess.Popen(["tesseract", "-l", "deu", "-psm", "3", scanfolder + x[0], scanfolder + x[0][:14] + self.__, "pdf"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			p = subprocess.Popen(["tesseract", "-l", "deu", "-psm", "3", self.__scanfolder + x[0], self.__scanfolder + x[0][:13], "pdf"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			self.__cur.execute("UPDATE scans SET ocr=\'True\' WHERE filename=\'%s\';" %x[0])
 			self.__conn.commit()
 			p.communicate()
