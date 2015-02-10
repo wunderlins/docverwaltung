@@ -26,6 +26,8 @@ name TEXT,
 value INTEGER
 );""", """\
 INSERT INTO sequence (name, value) VALUES ('lastfile', 1000); 
+""", """\
+INSERT INTO sequence (name, value) VALUES ('lastdate', 20150101); 
 """]
 
 createscriptpdf = ["""\
@@ -118,7 +120,16 @@ class scandoc(object):
 	### Funktionen #############################################
 	### Scan ###
 	def scan(self):
-		self.__scan_batch = datetime.datetime.now().strftime("%Y%m%d-")
+		# ueberpruefen ob an deisem Tag schon gescannt wurde
+		lastdate = self.__cur.execute("select value from sequence where name=\'lastdate\';")
+		self.__scan_batch = str(lastdate.fetchone()[0])
+		# Wenn noch nichts gescannt wurde
+		if not self.__scan_batch == datetime.datetime.now().strftime("%Y%m%d-"):
+			self.__scan_batch = datetime.datetime.now().strftime("%Y%m%d-")
+			self.__scan_batchstart = "1000"
+			self.__cur.execute("UPDATE sequence SET value=%s WHERE name=\'lastdate\';" % self.__scan_batch
+			self.__cur.execute("UPDATE sequence SET value=%s WHERE name=\'lastfile\';" % self.__scan_batchstart
+			self.__conn.commit()
 		lastfile = self.__cur.execute("select value from sequence where name=\'lastfile\';")
 		self.__scan_batchstart = str(int(lastfile.fetchone()[0]) + 1)
 		output = subprocess.Popen(["scanimage", "-b", "-d", self.__scan_device, "--source", self.__scan_source, "--page-width", self.__scan_width, "--page-height", self.__scan_height, "-x", self.__scan_x, "-y", self.__scan_y, "--batch=" + self.__scanfolder + self.__scan_batch + "%d." + self.__scan_format, "--format=" + self.__scan_format, "--mode", self.__scan_mode, "--resolution", self.__scan_resolution, "--batch-start=" + self.__scan_batchstart, "--swdespeck", self.__scan_swdespeck, "--swskip", self.__scan_swskip, "--swdeskew=" + self.__scan_swdeskew, "--ald=" + self.__scan_ald], stderr=subprocess.PIPE)
