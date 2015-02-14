@@ -6,4 +6,5 @@
 # - sane
 # - tessarect
 # - imagemagick
+# - python-passlib
 
