@@ -60,3 +60,17 @@ conn.commit()
 cur.close()
 conn.close()
 
+# Ordner erstellen
+if not os.path.exists(workdir):
+	os.makedirs(workdir)
+	logging.info("Ordner %s erstellt" %workdir)
+if not os.path.exists(datadir):
+	os.makedirs(datadir)
+	logging.info("Ordner %s erstellt" %datadir)
+if not os.path.exists(workdir + "/" + adminuser):
+	os.makedirs(workdir + "/" + adminuser)
+	logging.info("Ordner %s erstellt" %workdir + "/" + adminuser)
+if not os.path.exists(datadir + "/" + adminuser):
+	os.makedirs(datadir + "/" + adminuser)
+	logging.info("Ordner %s erstellt" %datadir + "/" + adminuser)
+
