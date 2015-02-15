@@ -4,56 +4,15 @@ import os
 import sqlite3
 import subprocess
 import datetime
+import ConfigParser
+import logging
+import login
+import authorisation
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
+scannerconfpath = "../etc/scanner.conf"
+scandocconfpath = "../etc/scandoc.conf"
 
-
-# Createscript fuer DB
-createscriptscan = ["""\
-CREATE TABLE IF NOT EXISTS scans
-(
-id INTEGER PRIMARY KEY,
-filename TEXT,
-time_created TEXT,
-prepared BOOLEAN DEFAULT False,
-thumbnail BOOLEAN DEFAULT False,
-ocr BOOLEAN DEFAULT False
-);""", """\
-CREATE TABLE IF NOT EXISTS sequence
-(
-id INTEGER PRIMARY KEY,
-name TEXT,
-value INTEGER
-);""", """\
-INSERT INTO sequence (name, value) VALUES ('lastfile', 1000); 
-""", """\
-INSERT INTO sequence (name, value) VALUES ('lastdate', 20150101); 
-"""]
-
-createscriptpdf = ["""\
-CREATE TABLE IF NOT EXISTS folder
-(
-id INTEGER PRIMARY KEY,
-name TEXT
-);""", """\
-INSERT INTO folder (name) VALUES ('bank1'); 
-""", """\
-INSERT INTO folder (name) VALUES ('bank2'); 
-""", """\
-INSERT INTO folder (name) VALUES ('bank3'); 
-""", """\
-INSERT INTO folder (name) VALUES ('creditcard1'); 
-""", """\
-INSERT INTO folder (name) VALUES ('creditcard2'); 
-""", """\
-INSERT INTO folder (name) VALUES ('car'); 
-""", """\
-INSERT INTO folder (name) VALUES ('job'); 
-""", """\
-INSERT INTO folder (name) VALUES ('insurance1'); 
-""", """\
-INSERT INTO folder (name) VALUES ('insurance2'); 
-"""]
 
 # Klasse zum scanen, editieren und zu PDF umwandeln (inkl. OCR)
 class scandoc(object):
@@ -61,52 +20,68 @@ class scandoc(object):
 	# Statische Methode
 	# Dies ist der Konstruktor
 	def __init__(self):
-		# Pfade
-		self.__scanfolder = "/home/samuel/Documents/scan/scan/test/"
-		self.__dbfile = self.__scanfolder + "index.db"
+		# scandoc.conf einlesen
+		scandocconfig = ConfigParser.ConfigParser()
+		scandocconfig.read(scandocconfpath)
+		logfile = scandocconfig.get("default", "scandoclogfile")
+		self.__datagroupdb = scandocconfig.get("default", "datagroupdb")
+		del scandocconfig
+		# Logging
+		logging.basicConfig(filename=logfile,format='%(asctime)s %(name)s %(levelname)s:%(message)s' ,level=logging.DEBUG)
+		self.__scandoclog=logging.getLogger("scandoc")
+		self.__scandoclog.info("#################  Log beginnt  #################")
+		# Login
+		result = login.login()
+		if not result:
+			self.__scandoclog.error("Login funktionierte nicht. Programm wird beendet.")
+			exit(1)
+		self.__user = result[0]
+		self.__userid = result[1]
+		self.__scandoclog.info("Benutzer %s wurde angemeldet" %self.__user)
+		# Darf er scannen?
+		self.__authorisation = authorisation.authorisation()
+		if not self.__authorisation.authorisation("scan", self.__userid):
+			exit(1)
+		# Workdir setzen
+		conn = sqlite3.connect(self.__datagroupdb)
+		cur = conn.cursor()
+		self.__scanfolder = str(cur.execute("SELECT inputpath FROM datagroup WHERE user_id=%s" %self.__userid).fetchone()[0])
+		self.__scandoclog.info("scanfolder = %s" %self.__scanfolder)
+		self.__dbfile = os.path.join(self.__scanfolder, "index.db")
+		self.__scandoclog.info("index.db path = %s" %self.__dbfile)
+		cur.close()
+		conn.close()
 		# DB oeffnen oder erstellen
 		self.__conn = sqlite3.connect(self.__dbfile)
 		self.__cur = self.__conn.cursor()
 		try:
-			self.__cur.execute("SELECT * FROM sequence where name='lastfile';")
+			self.__cur.execute("SELECT * FROM intsequence where name='lastfile';")
+			self.__scandoclog.info("%s existierte bereits" %self.__dbfile)
 		except:
-			for x in createscriptscan:
-				self.__cur.execute(x)
-			self.__conn.commit()	
+			qry = open('./SQL/create_scandb.sql', 'r').read()
+			self.__cur.executescript(qry)
+			self.__conn.commit()
+			self.__scandoclog.info("%s wurde neu erstellt" %self.__dbfile)
 		self.__Test = "Hello World"
-		# Einstellungen fuer Scanner (Fujitsu ScanSnap S1500)
-		self.__scan_device = "fujitsu"				# Selects the device.
-		self.__scan_source = "ADF Duplex"			# Selects the scan source (such as a document-feeder).
-													# ADF Front|ADF Back|ADF Duplex
-		self.__scan_format = "tiff"					# File format of output file
-													# pnm|tiff
-		self.__scan_mode = "color"					# Selects the scan mode (e.g., lineart, monochrome, or color).
-													# Lineart|Halftone|Gray|Color
-		self.__scan_resolution = "150"				# Sets the resolution of the scanned image.
-													# 50..600dpi (in steps of 1)
-		self.__scan_width = "210.009"				# Specifies the width of the media.  Required for automatic centering of sheet-fed scans.
-													# 0..221.121mm (in steps of 0.0211639)
-		self.__scan_height = "297.014"				# Specifies the height of the media.
-													# 0..876.695mm (in steps of 0.0211639)
-		self.__scan_x = self.__scan_width			# Width of scan-area.
-													# 0..215.872mm (in steps of 0.0211639)
-		self.__scan_y = self.__scan_height			# Height of scan-area.
-													# 0..279.364mm (in steps of 0.0211639)
-		self.__scan_batch = "out%d"					# Filename
-		self.__scan_batchstart = "1000"				# page number to start naming files with
-		self.__scan_swdespeck = "1"					# Maximum diameter of lone dots to remove from scan.
-													# 0..9 (in steps of 1)
-		self.__scan_swskip = "15%"					# Request driver to discard pages with low percentage of dark pixels
-													# 0..100% (in steps of 1.52588e-05)
-		self.__scan_swdeskew = "no"					# Request driver to rotate skewed pages digitally.
-		self.__scan_ald = "yes" 					# Scanner detects paper lower edge. May confuse some frontends.
-		# Thumbnail
-		self.__thumbnailsize = "300x424"			# Groesse des Thumbnail
-		self.__thumbnailformat = "png"				# Format des Thumbnail
+		# scanner.conf einlesen
+		self.__scannerconfig = ConfigParser.ConfigParser()
+		try:
+			self.__scannerconfig.read(scannerconfpath)
+			self.__scan_device = self.__scannerconfig.get("default", "scan_device")
+			self.__scandoclog.info("scanner.conf eingelesen. Verwendeter scanner: %s" %self.__scan_device)
+		except:
+			self.__scandoclog.exception("scanner.conf konnte nicht gelesen werden")
+			exit(1)
+			
+		
 
 	# Dies ist der Destruktor
 	def __del__(self):
+		self.__cur.close()
 		self.__conn.close()
+		del self.__authorisation
+		self.__scandoclog.info("#################  Log endet  #################")
+		logging.shutdown()
 	# Hier sind die Methoden
 	# Getter Methoden
 	def test(self):
@@ -121,27 +96,38 @@ class scandoc(object):
 	### Scan ###
 	def scan(self):
 		# ueberpruefen ob an deisem Tag schon gescannt wurde
-		lastdate = self.__cur.execute("select value from sequence where name=\'lastdate\';")
-		self.__scan_batch = str(lastdate.fetchone()[0])
+		x = self.__cur.execute("select value from datesequence where name=\'lastdate\';")
+		lastdate = datetime.datetime.strptime(x.fetchone()[0], "%Y-%m-%d %H:%M:%S")
+		scan_batch = datetime.datetime.strftime(lastdate, "%Y%m%d")
+		self.__scandoclog.info("Letzter Scanbatch startete %s" %scan_batch)
 		# Wenn noch nichts gescannt wurde
-		if not self.__scan_batch == datetime.datetime.now().strftime("%Y%m%d-"):
-			self.__scan_batch = datetime.datetime.now().strftime("%Y%m%d-")
-			self.__scan_batchstart = "1000"
-			self.__cur.execute("UPDATE sequence SET value=%s WHERE name=\'lastdate\';" % self.__scan_batch
-			self.__cur.execute("UPDATE sequence SET value=%s WHERE name=\'lastfile\';" % self.__scan_batchstart
+		if not lastdate.date() == datetime.datetime.now().date():
+			lastdate = datetime.datetime.now()
+			scan_batch = lastdate.strftime("%Y%m%d-")
+			self.__scandoclog.info("Heute wurde noch nichts gescannt %s" %scan_batch)
+			scan_batchstart = "1000"
+			self.__cur.execute("UPDATE datesequence SET value=\'%s\' WHERE name=\'lastdate\';" % lastdate.strftime("%Y-%m-%d %H:%M:%S"))
+			self.__cur.execute("UPDATE intsequence SET value=%s WHERE name=\'lastfile\';" % scan_batchstart)
 			self.__conn.commit()
-		lastfile = self.__cur.execute("select value from sequence where name=\'lastfile\';")
-		self.__scan_batchstart = str(int(lastfile.fetchone()[0]) + 1)
-		output = subprocess.Popen(["scanimage", "-b", "-d", self.__scan_device, "--source", self.__scan_source, "--page-width", self.__scan_width, "--page-height", self.__scan_height, "-x", self.__scan_x, "-y", self.__scan_y, "--batch=" + self.__scanfolder + self.__scan_batch + "%d." + self.__scan_format, "--format=" + self.__scan_format, "--mode", self.__scan_mode, "--resolution", self.__scan_resolution, "--batch-start=" + self.__scan_batchstart, "--swdespeck", self.__scan_swdespeck, "--swskip", self.__scan_swskip, "--swdeskew=" + self.__scan_swdeskew, "--ald=" + self.__scan_ald], stderr=subprocess.PIPE)
-
+		lastfile = self.__cur.execute("select value from intsequence where name=\'lastfile\';")
+		scan_batchstart = str(int(lastfile.fetchone()[0]) + 1)
+		self.__scandoclog.info("Batch beginnt mit der Nummer: %s" %scan_batchstart)
+		batchfilename = os.path.join(self.__scanfolder, (scan_batch + "%d." + self.__scannerconfig.get("default", "scan_format")))
+		try:		
+			output = subprocess.Popen(["scanimage", "-b", "-d", self.__scan_device, "--source", self.__scannerconfig.get("default", "scan_source"), "--page-width", self.__scannerconfig.get("default", "scan_width"), "--page-height", self.__scannerconfig.get("default", "scan_height"), "-x", self.__scannerconfig.get("default", "scan_x"), "-y", self.__scannerconfig.get("default", "scan_y"), "--batch=" + batchfilename, "--format=" + self.__scannerconfig.get("default", "scan_format"), "--mode", self.__scannerconfig.get("default", "scan_mode"), "--resolution", self.__scannerconfig.get("default", "scan_resolution"), "--batch-start=" + scan_batchstart, "--swdespeck", self.__scannerconfig.get("default", "scan_swdespeck"), "--swskip", self.__scannerconfig.get("default", "scan_swskip"), "--swdeskew=" + self.__scannerconfig.get("default", "scan_swdeskew"), "--ald=" + self.__scannerconfig.get("default", "scan_ald")], stderr=subprocess.PIPE)
+		except:
+			self.__scandoclog.exception("beim scannen ging etwas schief...")
+			exit(1)
 	
 		# sequence in DB erhoehen
 		seiten = output.stderr.read().splitlines
 		for x in seiten(0):
+			self.__scandoclog.info(x)
 			if x[:7] == "Scanned":
-				self.__cur.execute("INSERT INTO scans (filename) VALUES (\'%s%s.%s\')" %(self.__scan_batch, x[13:17], self.__scan_format))
-				self.__cur.execute("UPDATE sequence SET value=%s WHERE name=\'lastfile\';" % x[13:17])
+				self.__cur.execute("INSERT INTO scans (filename) VALUES (\'%s%s.%s\')" %(scan_batch, x[13:17], self.__scannerconfig.get("default", "scan_format")))
+				self.__cur.execute("UPDATE intsequence SET value=%s WHERE name=\'lastfile\';" % x[13:17])
 				self.__conn.commit()
+		self.__scandoclog.info("Scanjob beendet")
 	# Scans bearbeiten und Thumbnail erstellen
 	def prepare(self):
 		toprepare = self.__cur.execute("SELECT filename FROM scans WHERE prepared=\'False\';")

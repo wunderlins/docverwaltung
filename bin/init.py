@@ -3,30 +3,61 @@
 import os.path
 import sqlite3
 import logging
+import ConfigParser
+from passlib.hash import pbkdf2_sha256
+
+scandocconfpath = "../etc/scandoc.conf"
+authenticationconfigpath = "../etc/authentication.conf"
+authorisationconfigpath = "../etc/authorisation.conf"
+
 
 
 # acl.db und licence.db erstellen und initialisieren.
 
-licensedb = "../etc/license.db"
-acldb = "../etc/acl.db"
-logfile = "../var/init.log"
+# scandoc.conf einlesen
+scandocconfig = ConfigParser.ConfigParser()
+scandocconfig.read(scandocconfpath)
+logfile = scandocconfig.get("default", "initlogfile")
+licensedb = scandocconfig.get("default", "licensedb")
+datagroupdb = os.path.normpath(scandocconfig.get("default", "datagroupdb"))
+adminuser = scandocconfig.get("init", "adminuser")
+adminpw = scandocconfig.get("init", "adminpw")
+workdir = os.path.normpath(scandocconfig.get("init", "workdir"))
+datadir = os.path.normpath(scandocconfig.get("init", "datadir"))
+del scandocconfig
 
-adminuser = "admin"
-adminpw = "$pbkdf2-sha256$2000$tRaC0LpXKgVg7N27F6LUOg$ClwBPf.D2OiEfySh2f9DJtgFqhL2YDhVhD2O9sbCjbw" # PW = 'admin'
-workdir = "../workdir"
-datadir = "../datadir"
+# authentication.conf einlesen
+authenticationconfig = ConfigParser.ConfigParser()
+authenticationconfig.read(authenticationconfigpath)
+authenticationdb = os.path.normpath(authenticationconfig.get("default", "authenticationdb"))
+hashingrounds = int(authenticationconfig.get("hashing", "rounds"))
+hashingsalt = int(authenticationconfig.get("hashing", "salt_size"))
+del authenticationconfig
+
+# authorisation.conf einlesen
+authorisationconfig = ConfigParser.ConfigParser()
+authorisationconfig.read(authorisationconfigpath)
+authorisationdb = os.path.normpath(authorisationconfig.get("default", "authorisationdb"))
+del authorisationconfig
 
 # Logging
 logging.basicConfig(filename=logfile,format='%(asctime)s %(levelname)s:%(message)s' ,level=logging.DEBUG)
+
+# Admin Passwort hashen
+adminpwhash = pbkdf2_sha256.encrypt(adminpw, rounds=hashingrounds, salt_size=hashingsalt)
 
 # Wenn Files schon existieren diese zu .old umbenennen und neues File erstellen.
 try:
 	if os.path.isfile(licensedb):
 		os.rename(licensedb, licensedb + ".old")
 		logging.warning(licensedb + " existiete bereits und wurde zu" + licensedb + ".old" + " umbenannt")
-	if os.path.isfile(acldb):
-		os.rename(acldb, acldb + ".old")
-		logging.warning(acldb + " existiete bereits und wurde zu " + acldb + ".old" + " umbenannt")
+
+# Ueberpruefen ob authenticationdb authorisationdb und datagroupdb im selben file sind und diese umbenennen.
+	dbfiles = sorted(set([datagroupdb, authenticationdb, authorisationdb]))
+	for x in dbfiles:
+		if os.path.isfile(x):
+			os.rename(x, x + ".old")
+			logging.warning(x + " existiete bereits und wurde zu " + x + ".old" + " umbenannt")
 except:
 	logging.exception('Umbenennen der Files funktioniert nicht')
 	raise
@@ -41,21 +72,42 @@ cur.close()
 conn.close()
 logging.info(licensedb + " wurde erstellt")
 
-# acl.db erstellen
-qry = open('./SQL/create_acl.sql', 'r').read()
-conn = sqlite3.connect(acldb)
+# authentication DB erstellen
+qry = open('./SQL/create_user.sql', 'r').read()
+conn = sqlite3.connect(authenticationdb)
 cur = conn.cursor()
 cur.executescript(qry)
-logging.info(acldb + " wurde erstellt")
+logging.info(authenticationdb + " user table wurde erstellt")
 # adminbenutzer anlegen
-cur.execute("INSERT INTO user (id, username, password, entry_created, entry_modified) VALUES (1, \'%s\', \'%s\', DATETIME(\'now\'), DATETIME(\'now\'));" %(adminuser, adminpw))
+cur.execute("INSERT INTO user (id, username, password, entry_created, entry_modified) VALUES (1, \'%s\', \'%s\', DATETIME(\'now\'), DATETIME(\'now\'));" %(adminuser, adminpwhash))
 logging.info("Benutzer " + adminuser + " wurde erstellt")
+conn.commit()
+cur.close()
+conn.close()
+
+# authorisation DB erstellen
+qry = open('./SQL/create_permission.sql', 'r').read()
+conn = sqlite3.connect(authorisationdb)
+cur = conn.cursor()
+cur.executescript(qry)
+logging.info(authorisationdb + " permission table wurde erstellt")
 # berechtigung setzen
-cur.execute("INSERT INTO permission (user_id, permissionname, entry_created, entry_modified) VALUES (1, \'administrator\', DATETIME(\'now\'), DATETIME(\'now\'));")
+cur.execute("INSERT INTO permission (user_id, permissionname, input, output, entry_created, entry_modified) VALUES (1, \'administrator\', \'True\', \'True\', DATETIME(\'now\'), DATETIME(\'now\'));")
 logging.info("gruppe administrator wurde erstellt")
+conn.commit()
+cur.close()
+conn.close()
+
+# datagroup DB erstellen
+qry = open('./SQL/create_datagroup.sql', 'r').read()
+conn = sqlite3.connect(datagroupdb)
+cur = conn.cursor()
+cur.executescript(qry)
+logging.info(datagroupdb + " datagroup table wurde erstellt")
 # datengruppe hinzufuegen
-cur.execute("INSERT INTO datagroup (user_id, datagroupname, inputpath, outputpath, input, output, entry_created, entry_modified) VALUES (1, \'%s\', \'%s\', \'%s\', \'True\', \'True\', DATETIME(\'now\'), DATETIME(\'now\'));" %(adminuser, workdir + "/" + adminuser, datadir + "/" + adminuser))
-logging.info("Dem Benutzer " + adminuser + " wurde das workdir=" + workdir + "/" + adminuser + " und datadir=" + datadir + "/" + adminuser + " zugeteilt")
+cur.execute("INSERT INTO datagroup (user_id, datagroupname, inputpath, outputpath, entry_created, entry_modified) VALUES (1, \'%s\', \'%s\', \'%s\', DATETIME(\'now\'), DATETIME(\'now\'));" %(adminuser, os.path.join(workdir, adminuser), os.path.join(datadir, adminuser)))
+
+logging.info("Dem Benutzer %s wurde das workdir=%s und datadir=%s zugeteilt" %(adminuser, os.path.join(workdir, adminuser), os.path.join(datadir, adminuser)))
 conn.commit()
 cur.close()
 conn.close()
@@ -67,10 +119,11 @@ if not os.path.exists(workdir):
 if not os.path.exists(datadir):
 	os.makedirs(datadir)
 	logging.info("Ordner %s erstellt" %datadir)
-if not os.path.exists(workdir + "/" + adminuser):
-	os.makedirs(workdir + "/" + adminuser)
-	logging.info("Ordner %s erstellt" %workdir + "/" + adminuser)
-if not os.path.exists(datadir + "/" + adminuser):
-	os.makedirs(datadir + "/" + adminuser)
-	logging.info("Ordner %s erstellt" %datadir + "/" + adminuser)
+if not os.path.exists(os.path.join(workdir, adminuser)):
+	os.makedirs(os.path.join(workdir, adminuser))
+	logging.info("Ordner %s erstellt" %(os.path.join(workdir, adminuser)))
+if not os.path.exists(os.path.join(datadir, adminuser)):
+	os.makedirs(os.path.join(datadir, adminuser))
+	logging.info("Ordner %s erstellt" %(os.path.join(datadir, adminuser)))
+logging.shutdown()
 
