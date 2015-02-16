@@ -8,6 +8,8 @@ import ConfigParser
 import logging
 import login
 import authorisation
+import json
+import Image
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
 scannerconfpath = "../etc/scanner.conf"
@@ -25,10 +27,13 @@ class scandoc(object):
 		scandocconfig.read(scandocconfpath)
 		logfile = scandocconfig.get("default", "scandoclogfile")
 		self.__datagroupdb = scandocconfig.get("default", "datagroupdb")
+		self.__thumbnailsize = scandocconfig.get("thumbnail", "size")
 		del scandocconfig
 		# Logging
+		#TODO das sollte noch in die scan funktion verschoben werden...
 		logging.basicConfig(filename=logfile,format='%(asctime)s %(name)s %(levelname)s:%(message)s' ,level=logging.DEBUG)
 		self.__scandoclog=logging.getLogger("scandoc")
+		self.__webtoollog=logging.getLogger("webtool")
 		self.__scandoclog.info("#################  Log beginnt  #################")
 		# Login
 		result = login.login()
@@ -132,7 +137,7 @@ class scandoc(object):
 	def prepare(self):
 		toprepare = self.__cur.execute("SELECT filename FROM scans WHERE prepared=\'False\';")
 		for x in toprepare.fetchall():
-			p = subprocess.Popen(["mogrify", "-normalize", "-level", "27%,76%", self.__scanfolder + x[0]])
+			p = subprocess.Popen(["mogrify", "-normalize", "-level", "27%,76%", os.path.join(self.__scanfolder, x[0])])
 			self.__cur.execute("UPDATE scans SET prepared=\'True\' WHERE filename=\'%s\';" %x[0])
 			self.__conn.commit()
 			p.communicate()
@@ -141,7 +146,7 @@ class scandoc(object):
 	def thumbnail(self):
 		toprepare = self.__cur.execute("SELECT filename FROM scans WHERE thumbnail=\'False\';")
 		for x in toprepare.fetchall():
-			p = subprocess.Popen(["convert", "-thumbnail", self.__thumbnailsize, self.__scanfolder + x[0], self.__scanfolder + x[0][:14] + self.__thumbnailformat])
+			p = subprocess.Popen(["convert", "-thumbnail", self.__thumbnailsize, os.path.join(self.__scanfolder, x[0]), os.path.join(self.__scanfolder, (x[0][:14] + self.__thumbnailformat))])
 			self.__cur.execute("UPDATE scans SET thumbnail=\'True\' WHERE filename=\'%s\';" %x[0])
 			self.__conn.commit()
 			p.communicate()
@@ -150,10 +155,54 @@ class scandoc(object):
 	def ocr(self):
 		toocr = self.__cur.execute("SELECT filename FROM scans WHERE ocr=\'False\';")
 		for x in toocr.fetchall():
-			p = subprocess.Popen(["tesseract", "-l", "deu", "-psm", "3", self.__scanfolder + x[0], self.__scanfolder + x[0][:13], "pdf"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			p = subprocess.Popen(["tesseract", "-l", "deu", "-psm", "3", os.path.join(self.__scanfolder, x[0]), os.path.join(self.__scanfolder, x[0][:12]), "pdf"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			self.__cur.execute("UPDATE scans SET ocr=\'True\' WHERE filename=\'%s\';" %x[0])
 			self.__conn.commit()
 			p.communicate()
+
+
+	# webtool workplace erstellen und json mit allen Bildern erstellen
+	def getImagelist(self):
+		# ist benutzer berechtigt?
+		# damit das funktioniert muss authorisation.py noch angepasst werden...
+		# exit(0) wird alles zum absturz bringen...
+		#if not self.__authorisation.authorisation("webtool", self.__userid):
+		#	exit(1)
+		
+		try:
+			aviableimg = self.__cur.execute("SELECT filename FROM scans WHERE user_id IS NULL").fetchall()
+		except:
+			aviableimg = []
+		try:
+			workplaceimg = self.__cur.execute("SELECT filename FROM scans WHERE user_id=%s" %self.__userid).fetchall()
+		except:
+			workplaceimg = []
+		
+		result = {'aviable': {'filename': aviableimg, 'count': len(aviableimg)}, 'workplace': {'filename': workplaceimg, 'count': len(workplaceimg)}}
+		return json.dumps(result)
+
+	# erstellt thumbnail und gibt fp zurueck
+	def getImage(self, filename, thumbsize=(106, 150)):
+		im = Image.open(os.path.join(self.__scanfolder, filename))
+		im.resize(thumbsize, Image.ANTIALIAS)
+		fp = # hier muesste ein file objekt erstellt werden...
+		im.save(fp, format=png)
+		return fp
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -7,4 +7,5 @@
 # - tessarect
 # - imagemagick
 # - python-passlib
+# - python-pil.imagetk
 

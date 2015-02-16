@@ -6,7 +6,8 @@ filename TEXT,
 time_created TEXT,
 prepared BOOLEAN DEFAULT False,
 thumbnail BOOLEAN DEFAULT False,
-ocr BOOLEAN DEFAULT False
+ocr BOOLEAN DEFAULT False,
+user_id TEXT
 );
 CREATE TABLE IF NOT EXISTS intsequence
 (
