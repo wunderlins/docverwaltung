@@ -3,6 +3,7 @@
 import sqlite3
 import logging
 import ConfigParser
+import os.path
 
 
 class authorisation(object):
@@ -13,7 +14,7 @@ class authorisation(object):
 		# Logging
 		self.__authorisationlog = logging.getLogger("authorisation")
 		# authorisation.conf einlesen
-		confpath = "../etc/authorisation.conf"
+		confpath = os.path.join(os.path.dirname(__file__), '..', 'etc', 'authorisation.conf')
 		self.__config = ConfigParser.ConfigParser()
 		try:
 			self.__config.read(confpath)
@@ -46,7 +47,7 @@ class authorisation(object):
 	### Funktionen #############################################
 	# authorisationentisiert gegen acl.db
 	def __internal(self):
-		conn = sqlite3.connect(self.__config.get("default", "authorisationdb"))
+		conn = sqlite3.connect(os.path.join(os.path.dirname(__file__), (self.__config.get("default", "authorisationdb"))))
 		cur = conn.cursor()
 		if not bool(cur.execute("SELECT input FROM permission WHERE user_id=%s" %str(self.__userid)).fetchone()[0]):
 			self.__authorisationlog.error("BenutzerID %s ist nicht berechtigt zum scannen" %self.__userid)

@@ -3,6 +3,7 @@
 import sqlite3
 import logging
 import ConfigParser
+import os.path
 from passlib.hash import pbkdf2_sha256
 
 
@@ -15,7 +16,7 @@ class auth(object):
 		# Logging
 		self.__authlog = logging.getLogger("authentication")
 		# authentication.conf einlesen
-		confpath = "../etc/authentication.conf"
+		confpath = os.path.join(os.path.dirname(__file__), '..','etc','authentication.conf')
 		self.__config = ConfigParser.ConfigParser()
 		try:
 			self.__config.read(confpath)
@@ -49,7 +50,7 @@ class auth(object):
 	### Funktionen #############################################
 	# Authentisiert gegen acl.db
 	def __internal(self):
-		conn = sqlite3.connect(self.__config.get("default", "authenticationdb"))
+		conn = sqlite3.connect(os.path.join(os.path.dirname(__file__), (self.__config.get("default", "authenticationdb"))))
 		cur = conn.cursor()
 		cur.execute("SELECT password FROM user WHERE username=\'%s\';" %self.__user)
 		try:

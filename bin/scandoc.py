@@ -12,10 +12,10 @@ import json
 import Image
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
-scannerconfpath = "../etc/scanner.conf"
-scandocconfpath = "../etc/scandoc.conf"
+scannerconfpath = os.path.join(os.path.dirname(__file__), '..', 'etc', 'scanner.conf')
+scandocconfpath = os.path.join(os.path.dirname(__file__), '..', 'etc', 'scandoc.conf')
 
-
+os.path.join(os.path.dirname(__file__), )
 # Klasse zum scanen, editieren und zu PDF umwandeln (inkl. OCR)
 class scandoc(object):
 	# Statische Member
@@ -25,8 +25,8 @@ class scandoc(object):
 		# scandoc.conf einlesen
 		scandocconfig = ConfigParser.ConfigParser()
 		scandocconfig.read(scandocconfpath)
-		logfile = scandocconfig.get("default", "scandoclogfile")
-		self.__datagroupdb = scandocconfig.get("default", "datagroupdb")
+		logfile = os.path.join(os.path.dirname(__file__), scandocconfig.get("default", "scandoclogfile"))
+		self.__datagroupdb = os.path.join(os.path.dirname(__file__), scandocconfig.get("default", "datagroupdb"))
 		self.__thumbnailsize = scandocconfig.get("thumbnail", "size")
 		del scandocconfig
 		# Logging
@@ -63,7 +63,7 @@ class scandoc(object):
 			self.__cur.execute("SELECT * FROM intsequence where name='lastfile';")
 			self.__scandoclog.info("%s existierte bereits" %self.__dbfile)
 		except:
-			qry = open('./SQL/create_scandb.sql', 'r').read()
+			qry = open((os.path.join(os.path.dirname(__file__), 'SQL', 'create_scandb.sql')), 'r').read()
 			self.__cur.executescript(qry)
 			self.__conn.commit()
 			self.__scandoclog.info("%s wurde neu erstellt" %self.__dbfile)
@@ -185,9 +185,9 @@ class scandoc(object):
 	def getImage(self, filename, thumbsize=(106, 150)):
 		im = Image.open(os.path.join(self.__scanfolder, filename))
 		im.resize(thumbsize, Image.ANTIALIAS)
-		fp = # hier muesste ein file objekt erstellt werden...
-		im.save(fp, format=png)
-		return fp
+		#fp = # hier muesste ein file objekt erstellt werden...
+		#im.save(fp, format=png)
+		#return fp
 
 
 
