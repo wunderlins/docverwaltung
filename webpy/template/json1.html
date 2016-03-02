@@ -1,0 +1,54 @@
+$def with ()
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>json1</title>
+	
+	<link rel="stylesheet" type="text/css" href="static/css/json1.css">
+	
+	<script type="application/javascript" src="static/js/jquery-2.1.3.min.js"></script>
+	<script type="application/javascript" src="static/js/json1.js"></script>
+
+</head>
+<body>
+
+<h1>Add two numbers</h1>
+
+<div id="container">
+	<fieldset>
+		<legend>Input</legend>
+		<form method="post" action="/json1" id="numbers_form">
+			<table>
+				<tr>
+					<td>integer 1</td>
+					<td><input type="number" name="int1" id="int1" min="0" max="1024" step="1" value="5"/></td>
+				</tr>
+				<tr>
+					<td>integer 2</td>
+					<td><input type="number" name="int2" id="int2" min="0" max="1024" step="1" value="220"/></td>
+				</tr>
+			</table>
+			<button type="button" onclick="send_form(this); return false;">Send Values to Server »</button>
+		</form>
+	</fieldset>
+	
+	<fieldset>
+		<legend>Result</legend>
+		<div id="result">
+		</div>
+	</fieldset>
+</div>
+<div id="break"></div>
+
+<div id="console">
+	<span class="label">Network Status: </span>
+	<span id="info">N/A</span>
+</div>
+
+<hr size="1"/>
+<a href="http://vanilla-js.com/"><img src="http://vanilla-js.com/assets/button.png" alt="100% Vanilla JS Compatible"
+     style="vertical-align: middle"/></a>
+<small>99% Vanilla JS Compatible; for a double doze of pimpin!</small>
+</body>
+</html>

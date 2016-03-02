@@ -1,0 +1,60 @@
+Json Interface
+
+Dokumente abholen:
+
+{
+	"meta": {
+	"error": 0,
+	"version": "0.0.1",
+	"typ": "tiff",
+	"limit": 10,
+	"place": "queue",
+	"width": 106,
+	"height": 150,
+	"task": "get"
+	}
+}
+
+
+Antwort:
+{
+	"meta": {
+		"error": 0,
+		"version": "0.0.1",
+		"typ": "tiff",
+		"elements": 4,
+		"place": "queue",
+		"task": "none"
+	},
+	
+	"elements": {
+		"117c7c72669c7ad3eL": {
+			"orientation": 0,
+			"width": 106,
+			"height": 150,
+			"place": "queue",
+			"task": "none",
+			"filename": "20160301224744000"
+		},
+		"117c7c72669c7ad3eL": {
+			"orientation": 0,
+			"width": 106,
+			"height": 150,
+			"place": "queue"
+			"task": "none"
+		},
+		"117c7c72669c7ad3eL": {
+			"orientation": 0,
+			"width": 106,
+			"height": 150,
+			"place": "queue"
+			"task": "none"
+		},
+		"117c7c72669c7ad3eL": {
+			"orientation": 0,
+			"width": 106,
+			"height": 150,
+			"place": "queue"
+			"task": "none"
+		}
+}
