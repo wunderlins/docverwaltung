@@ -6,12 +6,13 @@ Dokumente abholen:
 	"meta": {
 	"error": 0,
 	"version": "0.0.1",
-	"typ": "tiff",
+	"content-type": "image/tiff",
 	"limit": 10,
-	"place": "queue",
+	"store": "queue",
 	"width": 106,
 	"height": 150,
-	"task": "get"
+	"task": "list" // get|search|upload|modify
+	// list=whole store, get=single image, search=search all stores, upload=new image, modify=image manipulation
 	}
 }
 
@@ -21,40 +22,50 @@ Antwort:
 	"meta": {
 		"error": 0,
 		"version": "0.0.1",
-		"typ": "tiff",
-		"elements": 4,
-		"place": "queue",
-		"task": "none"
+		"length": 4,
+		"task": "none",
+		"fields": [
+			"orientation",
+			"width",
+			"height",
+			"store",
+			"task",
+			"content-type"
+		]
 	},
 	
 	"elements": {
-		"117c7c72669c7ad3eL": {
-			"orientation": 0,
-			"width": 106,
-			"height": 150,
-			"place": "queue",
-			"task": "none",
-			"filename": "20160301224744000"
-		},
-		"117c7c72669c7ad3eL": {
-			"orientation": 0,
-			"width": 106,
-			"height": 150,
-			"place": "queue"
-			"task": "none"
-		},
-		"117c7c72669c7ad3eL": {
-			"orientation": 0,
-			"width": 106,
-			"height": 150,
-			"place": "queue"
-			"task": "none"
-		},
-		"117c7c72669c7ad3eL": {
-			"orientation": 0,
-			"width": 106,
-			"height": 150,
-			"place": "queue"
-			"task": "none"
-		}
+		"20160301224744000": [
+			0,
+			106,
+			150,
+			"queue",
+			"none",
+			"image/tiff"
+		],
+		"20160301224744000": [
+			0,
+			106,
+			150,
+			"queue",
+			"none",
+			"image/jpg"
+		],
+		"20160301224744000": [
+			0,
+			106,
+			150,
+			"queue",
+			"none",
+			"image/tiff"
+		],
+		"20160301224744000": [
+			0,
+			106,
+			150,
+			"queue",
+			"none",
+			"image/tiff"
+		]
+	}
 }
