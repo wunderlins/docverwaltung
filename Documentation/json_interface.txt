@@ -7,7 +7,8 @@ Dokumente abholen:
 	"error": 0,
 	"version": "0.0.1",
 	"content-type": "image/tiff",
-	"limit": 10,
+	"limit": 10, // pager length
+	"start": 0, // pager position
 	"store": "queue",
 	"width": 106,
 	"height": 150,
@@ -23,7 +24,8 @@ Antwort:
 		"error": 0,
 		"version": "0.0.1",
 		"length": 4,
-		"task": "none",
+		"start": 0, // pager start
+		"limit": 10, // pager length
 		"fields": [
 			"orientation",
 			"width",
