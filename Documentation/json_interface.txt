@@ -12,7 +12,7 @@ Dokumente abholen:
 	"store": "queue",
 	"width": 106,
 	"height": 150,
-	"task": "list" // get|search|upload|modify
+	"action": "list" // get|search|upload|modify
 	// list=whole store, get=single image, search=search all stores, upload=new image, modify=image manipulation
 	}
 }
