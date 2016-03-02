@@ -4,7 +4,6 @@ Dokumente abholen:
 
 {
 	"meta": {
-	"error": 0,
 	"version": "0.0.1",
 	"content-type": "image/tiff",
 	"limit": 10, // pager length
@@ -14,6 +13,7 @@ Dokumente abholen:
 	"height": 150,
 	"action": "list" // get|search|upload|modify
 	// list=whole store, get=single image, search=search all stores, upload=new image, modify=image manipulation
+	"parameter": { /* TBD: action parameters */ }
 	}
 }
 
@@ -22,51 +22,43 @@ Antwort:
 {
 	"meta": {
 		"error": 0,
+		"error_message": "",
 		"version": "0.0.1",
 		"length": 4,
 		"start": 0, // pager start
 		"limit": 10, // pager length
+		"action": "list",
 		"fields": [
-			"orientation",
 			"width",
 			"height",
 			"store",
-			"task",
 			"content-type"
 		]
 	},
 	
 	"items": {
 		"20160301224744000": [
-			0,
 			106,
 			150,
 			"queue",
-			"none",
 			"image/tiff"
 		],
 		"20160301224744000": [
-			0,
 			106,
 			150,
 			"queue",
-			"none",
-			"image/jpg"
-		],
-		"20160301224744000": [
-			0,
-			106,
-			150,
-			"queue",
-			"none",
 			"image/tiff"
 		],
 		"20160301224744000": [
-			0,
 			106,
 			150,
 			"queue",
-			"none",
+			"image/tiff"
+		],
+		"20160301224744000": [
+			106,
+			150,
+			"queue",
 			"image/tiff"
 		]
 	}
